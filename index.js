@@ -17,29 +17,52 @@ const generateMockupURL = (url) => {
     return `${mockupBaseURL}?url=${encodeURIComponent(url)}&color=${encodeURIComponent(bgColor)}`;
 };
 
+const generateVideoThumbnailURL = (url) => {
+    const videoID = extractYouTubeID(url);
+    if (videoID) {
+        return `https://img.youtube.com/vi/${videoID}/hqdefault.jpg`;
+    }
+    return null;
+};
+
+const extractYouTubeID = (url) => {
+    const regex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const matches = url.match(regex);
+    return matches ? matches[1] : null;
+};
+
 client.on('messageCreate', async (message) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = message.content.match(urlRegex);
 
     if (urls) {
         for (const url of urls) {
-            try {
-                const mockupURL = generateMockupURL(url);
-                const response = await axios.get(mockupURL, { responseType: 'arraybuffer' });
+            let mockupURL = null;
 
-                const attachment = {
-                    files: [
-                        {
-                            attachment: Buffer.from(response.data, 'binary'),
-                            name: 'mockup.png',
-                        },
-                    ],
-                };
+            if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                mockupURL = generateVideoThumbnailURL(url);
+            } else {
+                mockupURL = generateMockupURL(url);
+            }
 
-                message.reply(attachment);
-            } catch (error) {
-                console.error('Error generating mockup:', error);
-                message.reply('Sorry, there was an error generating the mockup.');
+            if (mockupURL) {
+                try {
+                    const response = await axios.get(mockupURL, { responseType: 'arraybuffer' });
+
+                    const attachment = {
+                        files: [
+                            {
+                                attachment: Buffer.from(response.data, 'binary'),
+                                name: 'mockup.png',
+                            },
+                        ],
+                    };
+
+                    message.reply(attachment);
+                } catch (error) {
+                    console.error('Error generating mockup:', error);
+                    message.reply('Sorry, there was an error generating the mockup.');
+                }
             }
         }
     }
